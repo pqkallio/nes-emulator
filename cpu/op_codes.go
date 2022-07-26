@@ -386,6 +386,8 @@ func (c *Cpu) ror() uint8 {
 func (c *Cpu) rti() uint8 {
 	c.sp++
 	status := c.bus.ReadData(stackBase | uint16(c.sp))
+	status &= ^uint8(breakFlag)
+	status &= ^uint8(unusedFlag)
 	c.sp++
 	addrHi := uint16(c.bus.ReadData(stackBase | uint16(c.sp)))
 	c.sp++

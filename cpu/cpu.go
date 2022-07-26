@@ -108,13 +108,53 @@ func (c *Cpu) Reset() {
 // Nmi is called when the cpu receives a non-maskable interrupt.
 // A nmi is always handled.
 func (c *Cpu) Nmi() {
-	panic("not implemented")
+	c.bus.WriteData(stackBase+uint16(c.sp), uint8(c.pc>>8))
+	c.sp--
+	c.bus.WriteData(stackBase+uint16(c.sp), uint8(c.pc&0xff))
+	c.sp--
+
+	c.setFlag(breakFlag, false)
+	c.setFlag(unusedFlag, true)
+	c.setFlag(disableInterruptsFlag, true)
+	c.bus.WriteData(stackBase+uint16(c.sp), c.status)
+	c.sp--
+
+	c.absoluteAddr = 0xfffa
+	addrLo := uint16(c.bus.ReadData(c.absoluteAddr))
+	addrHi := uint16(c.bus.ReadData(c.absoluteAddr+1)) << 8
+	addr := addrLo | addrHi
+
+	c.pc = addr
+
+	c.nCycles = 8
 }
 
 // Irq is called to request an interrupt.
 // If the interrupts are disabled, the interrupt is ignored.
 func (c *Cpu) Irq() {
-	panic("not implemented")
+	if c.getFlag(disableInterruptsFlag) {
+		return
+	}
+
+	c.bus.WriteData(stackBase+uint16(c.sp), uint8(c.pc>>8))
+	c.sp--
+	c.bus.WriteData(stackBase+uint16(c.sp), uint8(c.pc&0xff))
+	c.sp--
+
+	c.setFlag(breakFlag, false)
+	c.setFlag(unusedFlag, true)
+	c.setFlag(disableInterruptsFlag, true)
+	c.bus.WriteData(stackBase+uint16(c.sp), c.status)
+	c.sp--
+
+	c.absoluteAddr = 0xfffe
+	addrLo := uint16(c.bus.ReadData(c.absoluteAddr))
+	addrHi := uint16(c.bus.ReadData(c.absoluteAddr+1)) << 8
+	addr := addrLo | addrHi
+
+	c.pc = addr
+
+	c.nCycles = 7
 }
 
 func (c *Cpu) fetchData() {
