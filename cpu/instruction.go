@@ -11,7 +11,7 @@ type instruction struct {
 }
 
 func setOpCodeLookups(cpu *Cpu) {
-	illegal := instruction{"???", cpu.illegal, cpu.impliedAddr, 1}
+	illegal := instruction{"???", cpu.illegal, cpu.impliedAddr, 2}
 
 	cpu.opCodeLookup = [256]instruction{
 		// 0x00-0x0F

@@ -1,5 +1,7 @@
 package cpu
 
+import "reflect"
+
 func (c *Cpu) adc() uint8 {
 	c.fetchData()
 	data := c.fetchedData
@@ -48,9 +50,21 @@ func (c *Cpu) asl() uint8 {
 	c.setFlag(zeroFlag, data == 0)
 	c.setFlag(negativeFlag, data&signMask != 0)
 
-	c.aReg = data
+	c.writeToMem(data)
 
 	return 0
+}
+
+func (c *Cpu) bcc() uint8 {
+	return c.branchOn(!c.getFlag(carryFlag))
+}
+
+func (c *Cpu) bcs() uint8 {
+	return c.branchOn(c.getFlag(carryFlag))
+}
+
+func (c *Cpu) beq() uint8 {
+	return c.branchOn(c.getFlag(zeroFlag))
 }
 
 func (c *Cpu) bit() uint8 {
@@ -110,47 +124,198 @@ func (c *Cpu) clv() uint8 {
 	return 0
 }
 
-func (c *Cpu) ora() uint8 {
-	data := c.bus.ReadData(c.absoluteAddr)
-	c.aReg = c.aReg | data
+func (c *Cpu) cmp() uint8 {
+	c.fetchData()
+	data := c.fetchedData
+
+	c.setFlag(carryFlag, c.aReg >= data)
+	c.setFlag(zeroFlag, c.aReg == data)
+	c.setFlag(negativeFlag, c.aReg&signMask != 0)
+
 	return 0
 }
 
-func (c *Cpu) php() uint8 {
-	panic("not implemented")
-}
+func (c *Cpu) cpx() uint8 {
+	c.fetchData()
+	data := c.fetchedData
 
-func (c *Cpu) jsr() uint8 {
-	panic("not implemented")
-}
+	c.setFlag(carryFlag, c.xReg >= data)
+	c.setFlag(zeroFlag, c.xReg == data)
+	c.setFlag(negativeFlag, c.xReg&signMask != 0)
 
-func (c *Cpu) rol() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) plp() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) sec() uint8 {
-	c.setFlag(carryFlag, true)
 	return 0
 }
 
-func (c *Cpu) rti() uint8 {
-	panic("not implemented")
+func (c *Cpu) cpy() uint8 {
+	c.fetchData()
+	data := c.fetchedData
+
+	c.setFlag(carryFlag, c.yReg >= data)
+	c.setFlag(zeroFlag, c.yReg == data)
+	c.setFlag(negativeFlag, c.yReg&signMask != 0)
+
+	return 0
+}
+
+func (c *Cpu) dec() uint8 {
+	c.fetchData()
+	data := c.fetchedData
+
+	result := data - 1
+
+	c.setFlag(negativeFlag, result&signMask != 0)
+	c.setFlag(zeroFlag, result == 0)
+
+	c.writeToMem(result)
+
+	return 0
+}
+
+func (c *Cpu) dex() uint8 {
+	result := c.xReg - 1
+
+	c.setFlag(negativeFlag, result&signMask != 0)
+	c.setFlag(zeroFlag, result == 0)
+
+	c.xReg = result
+
+	return 0
+}
+
+func (c *Cpu) dey() uint8 {
+	result := c.yReg - 1
+
+	c.setFlag(negativeFlag, result&signMask != 0)
+	c.setFlag(zeroFlag, result == 0)
+
+	c.yReg = result
+
+	return 0
 }
 
 func (c *Cpu) eor() uint8 {
-	panic("not implemented")
+	c.fetchData()
+	data := c.fetchedData
+
+	result := c.aReg ^ data
+
+	c.setFlag(negativeFlag, result&signMask != 0)
+	c.setFlag(zeroFlag, result == 0)
+
+	c.aReg = result
+
+	return 1
+}
+
+func (c *Cpu) inc() uint8 {
+	c.fetchData()
+	data := c.fetchedData
+
+	result := data + 1
+
+	c.setFlag(negativeFlag, result&signMask != 0)
+	c.setFlag(zeroFlag, result == 0)
+
+	c.writeToMem(result)
+
+	return 0
+}
+
+func (c *Cpu) inx() uint8 {
+	result := c.xReg + 1
+
+	c.setFlag(negativeFlag, result&signMask != 0)
+	c.setFlag(zeroFlag, result == 0)
+
+	c.xReg = result
+
+	return 0
+}
+
+func (c *Cpu) iny() uint8 {
+	result := c.yReg + 1
+
+	c.setFlag(negativeFlag, result&signMask != 0)
+	c.setFlag(zeroFlag, result == 0)
+
+	c.yReg = result
+
+	return 0
+}
+
+func (c *Cpu) jmp() uint8 {
+	c.pc = c.absoluteAddr
+
+	return 0
+}
+
+func (c *Cpu) jsr() uint8 {
+	c.bus.WriteData(stackBase|uint16(c.sp), uint8(c.pc>>8))
+	c.sp--
+	c.bus.WriteData(stackBase|uint16(c.sp), uint8(c.pc))
+	c.sp--
+
+	c.pc = c.absoluteAddr
+
+	return 0
+}
+
+func (c *Cpu) lda() uint8 {
+	c.fetchData()
+	c.aReg = c.fetchedData
+
+	return 0
+}
+
+func (c *Cpu) ldx() uint8 {
+	c.fetchData()
+	c.xReg = c.fetchedData
+
+	return 0
+}
+
+func (c *Cpu) ldy() uint8 {
+	c.fetchData()
+	c.yReg = c.fetchedData
+
+	return 0
 }
 
 func (c *Cpu) lsr() uint8 {
-	panic("not implemented")
+	c.fetchData()
+	data := c.fetchedData
+
+	c.setFlag(carryFlag, data&1 != 0)
+	data >>= 1
+	c.setFlag(zeroFlag, data == 0)
+	c.setFlag(negativeFlag, false)
+
+	c.writeToMem(data)
+
+	return 0
+}
+
+func (c *Cpu) nop() uint8 {
+	return 0
+}
+
+func (c *Cpu) ora() uint8 {
+	c.fetchData()
+	data := c.fetchedData
+
+	c.aReg = c.aReg | data
+
+	return 0
 }
 
 func (c *Cpu) pha() uint8 {
 	c.bus.WriteData(stackBase+uint16(c.sp), c.aReg)
+	c.sp--
+	return 0
+}
+
+func (c *Cpu) php() uint8 {
+	c.bus.WriteData(stackBase+uint16(c.sp), c.status)
 	c.sp--
 	return 0
 }
@@ -165,18 +330,93 @@ func (c *Cpu) pla() uint8 {
 	return 0
 }
 
-func (c *Cpu) jmp() uint8 {
-	panic("not implemented")
+func (c *Cpu) plp() uint8 {
+	c.sp++
+	c.status = c.bus.ReadData(stackBase + uint16(c.sp))
+
+	return 0
+}
+
+func (c *Cpu) rol() uint8 {
+	c.fetchData()
+	data := c.fetchedData
+
+	carry := 0
+	if data&signMask != 0 {
+		carry = 1
+	}
+
+	data <<= 1
+	if c.getFlag(carryFlag) {
+		data |= 1
+	}
+
+	c.setFlag(carryFlag, carry != 0)
+	c.setFlag(zeroFlag, data == 0)
+	c.setFlag(negativeFlag, data&signMask != 0)
+
+	c.writeToMem(data)
+
+	return 0
+}
+
+func (c *Cpu) ror() uint8 {
+	c.fetchData()
+	data := c.fetchedData
+
+	carry := 0
+	if data&0x01 != 0 {
+		carry = 1
+	}
+
+	data >>= 1
+	if c.getFlag(carryFlag) {
+		data |= signMask
+	}
+
+	c.setFlag(carryFlag, carry != 0)
+	c.setFlag(zeroFlag, data == 0)
+	c.setFlag(negativeFlag, data&signMask != 0)
+
+	c.writeToMem(data)
+
+	return 0
+}
+
+func (c *Cpu) rti() uint8 {
+	c.sp++
+	status := c.bus.ReadData(stackBase | uint16(c.sp))
+	c.sp++
+	addrHi := uint16(c.bus.ReadData(stackBase | uint16(c.sp)))
+	c.sp++
+	addrLo := uint16(c.bus.ReadData(stackBase|uint16(c.sp))) << 8
+
+	addr := addrHi | addrLo
+
+	c.pc = addr
+	c.status = status
+
+	return 0
 }
 
 func (c *Cpu) rts() uint8 {
-	panic("not implemented")
+	c.sp++
+	addrHi := uint16(c.bus.ReadData(stackBase | uint16(c.sp)))
+	c.sp++
+	addrLo := uint16(c.bus.ReadData(stackBase|uint16(c.sp))) << 8
+
+	addr := addrHi | addrLo
+
+	c.pc = addr + 1
+
+	return 0
 }
 
 func (c *Cpu) sbc() uint8 {
 	// The substraction for unsigned numbers can be achieved with the following formula:
 	// accum + ~memory + (1 - carry)
-	m := ^uint16(c.bus.ReadData(c.absoluteAddr))
+	c.fetchData()
+	m := ^uint16(c.fetchedData)
 
 	carry := uint16(1)
 	if c.getFlag(carryFlag) {
@@ -203,8 +443,14 @@ func (c *Cpu) sbc() uint8 {
 	return 1
 }
 
-func (c *Cpu) ror() uint8 {
-	panic("not implemented")
+func (c *Cpu) sec() uint8 {
+	c.setFlag(carryFlag, true)
+	return 0
+}
+
+func (c *Cpu) sed() uint8 {
+	c.setFlag(decimalModeFlag, true)
+	return 0
 }
 
 func (c *Cpu) sei() uint8 {
@@ -213,112 +459,68 @@ func (c *Cpu) sei() uint8 {
 }
 
 func (c *Cpu) sta() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) stx() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) sty() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) dey() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) txa() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) bcc() uint8 {
-	return c.branchOn(!c.getFlag(carryFlag))
-}
-
-func (c *Cpu) tya() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) txs() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) ldy() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) lda() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) ldx() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) tay() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) tax() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) bcs() uint8 {
-	return c.branchOn(c.getFlag(carryFlag))
-}
-
-func (c *Cpu) tsx() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) cpy() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) cmp() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) dec() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) iny() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) dex() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) cpx() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) inc() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) inx() uint8 {
-	panic("not implemented")
-}
-
-func (c *Cpu) beq() uint8 {
-	return c.branchOn(c.getFlag(zeroFlag))
-}
-
-func (c *Cpu) sed() uint8 {
-	c.setFlag(decimalModeFlag, true)
+	c.writeToMem(c.aReg)
 	return 0
 }
 
-func (c *Cpu) nop() uint8 {
-	panic("not implemented")
+func (c *Cpu) stx() uint8 {
+	c.writeToMem(c.xReg)
+	return 0
+}
+
+func (c *Cpu) sty() uint8 {
+	c.writeToMem(c.yReg)
+	return 0
+}
+
+func (c *Cpu) tsx() uint8 {
+	c.xReg = c.sp
+	return 0
+}
+
+func (c *Cpu) txs() uint8 {
+	c.sp = c.xReg
+	return 0
+}
+
+func (c *Cpu) tax() uint8 {
+	c.xReg = c.aReg
+
+	c.setFlag(zeroFlag, c.xReg == 0)
+	c.setFlag(negativeFlag, c.xReg&signMask != 0)
+
+	return 0
+}
+
+func (c *Cpu) tay() uint8 {
+	c.yReg = c.aReg
+
+	c.setFlag(zeroFlag, c.yReg == 0)
+	c.setFlag(negativeFlag, c.yReg&signMask != 0)
+
+	return 0
+}
+
+func (c *Cpu) txa() uint8 {
+	c.aReg = c.xReg
+
+	c.setFlag(zeroFlag, c.aReg == 0)
+	c.setFlag(negativeFlag, c.aReg&signMask != 0)
+
+	return 0
+}
+
+func (c *Cpu) tya() uint8 {
+	c.aReg = c.yReg
+
+	c.setFlag(zeroFlag, c.aReg == 0)
+	c.setFlag(negativeFlag, c.aReg&signMask != 0)
+
+	return 0
 }
 
 func (c *Cpu) illegal() uint8 {
-	panic("not implemented")
+	return 0
 }
 
 func (c *Cpu) branchOn(cond bool) uint8 {
@@ -337,4 +539,13 @@ func (c *Cpu) branchOn(cond bool) uint8 {
 	c.pc = c.absoluteAddr
 
 	return 0
+}
+
+func (c *Cpu) writeToMem(val uint8) {
+	switch reflect.ValueOf(c.opCodeLookup[c.opCode].addr).Pointer() {
+	case reflect.ValueOf(c.accumulator).Pointer():
+		c.aReg = val
+	default:
+		c.bus.WriteData(c.absoluteAddr, val)
+	}
 }
