@@ -1,7 +1,7 @@
 package bus
 
 import (
-	"github.com/pqkallio/nes-emulator/ram"
+	"github.com/pqkallio/nes-emulator/emulator/ram"
 )
 
 type Bus struct {

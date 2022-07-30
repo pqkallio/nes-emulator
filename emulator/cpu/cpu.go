@@ -3,7 +3,7 @@ package cpu
 import (
 	"reflect"
 
-	"github.com/pqkallio/nes-emulator/bus"
+	"github.com/pqkallio/nes-emulator/emulator/bus"
 )
 
 type cpuFlag uint8
